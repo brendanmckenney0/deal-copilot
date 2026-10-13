@@ -21,13 +21,14 @@ def seed(store: EntityStore | None = None) -> EntityStore:
         "Harbor Point",
         "88 Harbor Drive, Tampa, FL 33602",
         "mixed-use",
-        aliases=["harbor point", "bluefin"],  # tenant alias -> the property
+        aliases=["harbor point", "bluefin", "copperline"],
+        # tenant aliases -> the property
     )
     store.add_property(
         "Ironworks Industrial Park",
         "Gary, IN",
         "industrial",
-        aliases=["ironworks", "ironworks industrial"],
+        aliases=["ironworks", "ironworks industrial", "great lakes"],
     )
     return store
 

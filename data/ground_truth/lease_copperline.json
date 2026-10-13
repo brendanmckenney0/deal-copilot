@@ -1,0 +1,46 @@
+{
+  "doc_type": "lease",
+  "source_file": "lease_copperline.pdf",
+  "fields": {
+    "tenant_name": {
+      "value": "Copperline Fitness LLC",
+      "page": 1
+    },
+    "premises_address": {
+      "value": "Suite 210, 88 Harbor Drive, Tampa, FL 33602",
+      "page": 1
+    },
+    "commencement_date": {
+      "value": "2023-03-01",
+      "page": 2
+    },
+    "expiration_date": {
+      "value": "2027-11-30",
+      "page": 2
+    },
+    "base_rent_annual": {
+      "value": 96000,
+      "page": 3
+    },
+    "escalation_terms": {
+      "value": "2.5% annual escalations on each anniversary of the Commencement Date.",
+      "page": 3
+    },
+    "renewal_options": {
+      "value": "One (1) five-year renewal option at 95% of fair market rent.",
+      "page": 3
+    },
+    "renewal_notice_date": {
+      "value": "2027-05-31",
+      "page": 2
+    },
+    "guarantor": {
+      "value": "David Park",
+      "page": 3
+    },
+    "permitted_use": {
+      "value": "Fitness center and gym.",
+      "page": 4
+    }
+  }
+}

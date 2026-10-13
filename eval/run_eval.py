@@ -1,8 +1,9 @@
 """Combined eval runner. Prints one summary; exits non-zero on failure.
 
-(a) extraction field-level accuracy vs ground truth (OM + lease samples)
+(a) extraction field-level accuracy vs ground truth (2 OMs + 3 leases)
 (b) 6 router tests (2 structured, 2 rag, 2 both)
-(c) 4 end-to-end ask tests: structured, RAG, comparison, unanswerable
+(c) end-to-end ask tests: structured, tenant-aware lease lookup, RAG,
+    OM comparison, multi-lease comparison, unanswerable
 
 Rebuilds docs + index first so the eval is self-contained. Local mode
 (PROVIDER unset) is expected to pass near-perfectly; any miss is
@@ -58,10 +59,13 @@ def canon(v):
 
 def eval_extraction(store: EntityStore):
     print("\n(a) extraction accuracy vs ground truth")
-    for gt_file in ["om_maple_grove.json", "lease_bluefin.json"]:
+    for gt_file in ["om_maple_grove.json", "om_harbor_point.json",
+                    "lease_bluefin.json", "lease_copperline.json",
+                    "lease_glakes.json"]:
         gt = json.loads((ROOT / "data" / "ground_truth" / gt_file).read_text())
         doc_type = gt["doc_type"]
-        recs = store.get_extractions(doc_type=doc_type)
+        recs = [r for r in store.get_extractions(doc_type=doc_type)
+                if r["source_file"] == gt["source_file"]]
         check(f"{gt_file}: extraction stored", bool(recs))
         if not recs:
             continue
@@ -112,6 +116,16 @@ def eval_ask(store: EntityStore):
     check("ask structured: citations", bool(r["citations"]))
     check("ask structured: knew", r["knew"] is True)
 
+    # tenant-aware: same property, different tenant -> different answer
+    r = asker.ask("When does the Copperline Fitness lease expire?")
+    check("ask tenant-aware: route", r["route"] == "structured",
+          f"got {r['route']}")
+    check("ask tenant-aware: copperline date", "2027-11-30" in r["answer"],
+          f"got: {r['answer'][:120]}")
+    check("ask tenant-aware: not bluefin's date",
+          "2029-05-31" not in r["answer"],
+          f"got: {r['answer'][:120]}")
+
     r = asker.ask("What year was Maple Grove Apartments renovated?")
     check("ask rag: knew", r["knew"] is True)
     check("ask rag: answer has 2019", "2019" in r["answer"])
@@ -123,6 +137,15 @@ def eval_ask(store: EntityStore):
           "table" in r and bool(r["table"].get("rows")),
           f"keys={list(r.keys())}")
     check("ask compare: knew", r["knew"] is True)
+    check("ask compare: two OM rows",
+          len(r["table"]["rows"]) == 2, f"rows={r['table']['rows']}")
+
+    r = asker.ask("Compare base rent across leases")
+    check("ask lease compare: route", r["route"] in ("structured", "both"),
+          f"got {r['route']}")
+    check("ask lease compare: three lease rows",
+          "table" in r and len(r["table"].get("rows", [])) == 3,
+          f"keys={list(r.keys())}")
 
     r = asker.ask("What is the CEO's favorite color?")
     check("ask unanswerable: refuses", r["knew"] is False

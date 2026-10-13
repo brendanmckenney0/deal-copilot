@@ -46,7 +46,9 @@ def main() -> None:
     pdf_texts = []
     try:
         from pypdf import PdfReader
-        for pdf in ["om_maple_grove.pdf", "lease_bluefin.pdf"]:
+        for pdf in ["om_maple_grove.pdf", "om_harbor_point.pdf",
+                    "lease_bluefin.pdf", "lease_copperline.pdf",
+                    "lease_glakes.pdf"]:
             reader = PdfReader(str(PDFS / pdf))
             pdf_texts.append("\n\n".join((pg.extract_text() or "")
                                          for pg in reader.pages))
@@ -66,7 +68,10 @@ def main() -> None:
           f"[{r['collection']}]")
 
     for pdf, doc_type in [("om_maple_grove.pdf", "om"),
-                          ("lease_bluefin.pdf", "lease")]:
+                          ("om_harbor_point.pdf", "om"),
+                          ("lease_bluefin.pdf", "lease"),
+                          ("lease_copperline.pdf", "lease"),
+                          ("lease_glakes.pdf", "lease")]:
         di = DocIntelConnector(PDFS / pdf, doc_type, store, CHROMA, provider)
         di.authenticate({})
         r = di.ingest()

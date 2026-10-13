@@ -14,6 +14,7 @@ Returns {"route", "answer", "citations", "table"?, "knew"}.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 import chromadb
@@ -83,7 +84,33 @@ class Asker:
                                           doc_type=doc_type)
         return recs[0] if recs else None
 
-    def _run_intent(self, intent):
+    def _select_lease(self, property_id, question):
+        """Pick the lease extraction the question is about.
+
+        When the question names a tenant, return that tenant's lease;
+        otherwise fall back to the latest extraction. This is what makes
+        'When does the Bluefin lease expire?' and '... the Copperline
+        lease ...?' return different (correct) answers for one property.
+        """
+        recs = self.store.get_extractions(property_id=property_id,
+                                          doc_type="lease")
+        if not recs:
+            return None
+        if len(recs) == 1 or not question:
+            return recs[0]
+        q = question.lower()
+        best, best_score = None, 0
+        for rec in recs:
+            tenant = rec["fields"].get("tenant_name", {}).get("value") or ""
+            words = [w for w in re.sub(r"[^a-z0-9 ]", " ",
+                                       tenant.lower()).split()
+                     if len(w) > 2 and w not in ("the", "inc", "llc", "co")]
+            score = sum(1 for w in words if w in q)
+            if score > best_score:
+                best, best_score = rec, score
+        return best or recs[0]
+
+    def _run_intent(self, intent, question=None):
         """Returns (answer_fragments, citations, table_or_None)."""
         frags, cites = [], []
         table = None
@@ -93,7 +120,8 @@ class Asker:
 
         if itype == "lease_expiry":
             prop = intent.get("property")
-            rec = self._latest_extraction(prop["id"], "lease") if prop else None
+            rec = (self._select_lease(prop["id"], question)
+                   if prop else None)
             fields = rec["fields"] if rec else {}
             exp = fields.get("expiration_date")
             ans, cit = _field_answer(
@@ -115,7 +143,10 @@ class Asker:
             if not prop or not field:
                 return frags, cites, table  # nothing structured to answer
             doc_type = "lease" if itype == "lease_field" else "om"
-            rec = self._latest_extraction(prop["id"], doc_type)
+            if itype == "lease_field":
+                rec = self._select_lease(prop["id"], question)
+            else:
+                rec = self._latest_extraction(prop["id"], doc_type)
             fields = rec["fields"] if rec else {}
             ans, cit = _field_answer(
                 prop["name"], field.replace("_", " "),
@@ -135,16 +166,29 @@ class Asker:
                                       "name": p["canonical_name"]})
             rows = []
             for p in props:
-                rec = self._latest_extraction(p["id"], doc_type)
-                fields = rec["fields"] if rec else {}
-                frec = fields.get(field) if field else None
-                if frec and frec.get("status") == "ok":
-                    rows.append({"property": p["name"],
-                                 (field or "value").replace("_", " "):
-                                     _format_value(frec["value"])})
-                    cites.append({"source": rec["source_file"],
-                                  "page": frec.get("page"),
-                                  "quote": frec.get("citation", "")})
+                # leases: one row per lease (a property can have several
+                # tenants); other doc types: latest record per property.
+                if doc_type == "lease":
+                    recs = self.store.get_extractions(
+                        property_id=p["id"], doc_type=doc_type)
+                else:
+                    rec = self._latest_extraction(p["id"], doc_type)
+                    recs = [rec] if rec else []
+                for rec in recs:
+                    fields = rec["fields"] if rec else {}
+                    frec = fields.get(field) if field else None
+                    if frec and frec.get("status") == "ok":
+                        label = p["name"]
+                        if doc_type == "lease":
+                            tenant = fields.get("tenant_name", {}).get("value")
+                            if tenant:
+                                label = f"{tenant} ({p['name']})"
+                        rows.append({"property": label,
+                                     (field or "value").replace("_", " "):
+                                         _format_value(frec["value"])})
+                        cites.append({"source": rec["source_file"],
+                                      "page": frec.get("page"),
+                                      "quote": frec.get("citation", "")})
             if rows:
                 table = {"columns": list(rows[0].keys()), "rows": rows}
                 frags.append(
@@ -188,7 +232,7 @@ class Asker:
 
         frags, cites, table = [], [], None
         if route_ in ("structured", "both"):
-            sf, sc, table = self._run_intent(intent)
+            sf, sc, table = self._run_intent(intent, question)
             frags.extend(sf)
             cites.extend(sc)
 
