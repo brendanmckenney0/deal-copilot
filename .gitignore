@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/*.db
+data/tfidf.json
+data/chroma/
+data/uploads/
+data/pdfs/
+.DS_Store

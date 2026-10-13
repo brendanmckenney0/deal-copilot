@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>deal-copilot</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --txt:#e8eaf0;
+          --dim:#9aa3b2; --acc:#6ea8fe; --ok:#5fd08a; --warn:#f0b35e; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--txt); font-family:system-ui,sans-serif;
+         margin:0; padding:24px; }
+  .wrap { max-width:860px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:18px; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tabs button { background:var(--panel); color:var(--dim); border:1px solid var(--line);
+                 padding:8px 16px; border-radius:8px; cursor:pointer; font-size:14px; }
+  .tabs button.active { color:var(--txt); border-color:var(--acc); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px;
+           padding:18px; display:none; }
+  .panel.active { display:block; }
+  .row { display:flex; gap:8px; margin-bottom:12px; }
+  input[type=text], select { flex:1; background:#0c0e12; color:var(--txt);
+      border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:14px; }
+  button.go { background:var(--acc); color:#0a0c10; border:0; border-radius:8px;
+      padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; }
+  button.go:disabled { opacity:.5; cursor:wait; }
+  .msg { margin:10px 0; padding:10px 12px; border-radius:8px; font-size:14px;
+         line-height:1.5; white-space:pre-wrap; }
+  .q { background:#1d2330; border:1px solid var(--line); text-align:right; }
+  .a { background:#141a16; border:1px solid var(--line); }
+  .meta { font-size:12px; color:var(--dim); margin-top:6px; }
+  .cite { font-size:12px; color:var(--dim); border-left:2px solid var(--acc);
+          padding-left:8px; margin:6px 0; }
+  table { border-collapse:collapse; width:100%; margin-top:10px; font-size:13px; }
+  th, td { border:1px solid var(--line); padding:6px 10px; text-align:left; }
+  th { background:#1d2330; }
+  .gap { color:var(--warn); font-size:13px; }
+  .ok { color:var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>deal-copilot</h1>
+  <div class="sub">Fused RAG + structured extraction demo. All data is fictional.</div>
+
+  <div class="tabs">
+    <button id="tab-ask" class="active" onclick="show('ask')">Ask</button>
+    <button id="tab-screen" onclick="show('screen')">Screen a document</button>
+  </div>
+
+  <div id="panel-ask" class="panel active">
+    <div class="row">
+      <input type="text" id="q" placeholder="Ask about the portfolio… e.g. When does the Bluefin Coffee lease expire?">
+      <button class="go" id="askbtn" onclick="ask()">Ask</button>
+    </div>
+    <div id="chat"></div>
+  </div>
+
+  <div id="panel-screen" class="panel">
+    <div class="row">
+      <input type="file" id="pdf" accept="application/pdf">
+      <select id="doctype" style="flex:0 0 160px">
+        <option value="om">Offering memo</option>
+        <option value="lease">Lease abstract</option>
+      </select>
+      <button class="go" id="ingbtn" onclick="ingest()">Screen</button>
+    </div>
+    <div id="result"></div>
+  </div>
+</div>
+
+<script>
+function show(which) {
+  for (const t of ['ask','screen']) {
+    document.getElementById('tab-'+t).classList.toggle('active', t===which);
+    document.getElementById('panel-'+t).classList.toggle('active', t===which);
+  }
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+async function ask() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  const btn = document.getElementById('askbtn'); btn.disabled = true;
+  const chat = document.getElementById('chat');
+  chat.insertAdjacentHTML('beforeend', `<div class="msg q">${esc(q)}</div>`);
+  document.getElementById('q').value = '';
+  try {
+    const r = await fetch('/ask', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({question:q})});
+    const d = await r.json();
+    let html = `<div class="msg a">${esc(d.answer)}`;
+    html += `<div class="meta">route: <b>${esc(d.route||'?')}</b> · knew: ${d.knew}</div>`;
+    (d.citations||[]).forEach(c => {
+      html += `<div class="cite">${esc(c.source||'?')}${c.page? ' · p'+c.page:''} — ${esc(c.quote||'')}</div>`;
+    });
+    if (d.table) {
+      html += '<table><tr>' + d.table.columns.map(c=>`<th>${esc(c)}</th>`).join('') + '</tr>';
+      d.table.rows.forEach(row => {
+        html += '<tr>' + d.table.columns.map(c=>`<td>${esc(String(row[c]??''))}</td>`).join('') + '</tr>';
+      });
+      html += '</table>';
+    }
+    html += '</div>';
+    chat.insertAdjacentHTML('beforeend', html);
+  } catch(e) {
+    chat.insertAdjacentHTML('beforeend', `<div class="msg a">Error: ${esc(String(e))}</div>`);
+  }
+  btn.disabled = false;
+}
+
+document.getElementById('q').addEventListener('keydown', e => { if (e.key==='Enter') ask(); });
+
+async function ingest() {
+  const file = document.getElementById('pdf').files[0];
+  const doctype = document.getElementById('doctype').value;
+  const out = document.getElementById('result');
+  if (!file) { out.innerHTML = '<div class="msg a">Choose a PDF first.</div>'; return; }
+  const btn = document.getElementById('ingbtn'); btn.disabled = true;
+  out.innerHTML = '<div class="msg a">Screening…</div>';
+  const fd = new FormData();
+  fd.append('pdf', file);
+  fd.append('doc_type', doctype);
+  try {
+    const r = await fetch('/ingest', {method:'POST', body: fd});
+    const d = await r.json();
+    if (d.status !== 'complete') {
+      out.innerHTML = `<div class="msg a">Failed: ${esc(d.error||'unknown error')}</div>`;
+      return;
+    }
+    let html = `<div class="msg a"><b class="ok">✓ Screened ${esc(d.source_file)}</b> → ${esc(d.property||'unlinked')}<br>` +
+      `${d.fields_extracted} fields extracted.</div>`;
+    if ((d.gaps||[]).length) {
+      html += '<div class="meta">Gaps (follow-ups):</div><table><tr><th>Field</th><th>Status</th><th>Question</th></tr>';
+      d.gaps.forEach(g => {
+        html += `<tr><td>${esc(g.field)}</td><td class="gap">${esc(g.status)}</td><td class="gap">${esc(g.question)}</td></tr>`;
+      });
+      html += '</table>';
+    } else {
+      html += '<div class="meta ok">No gaps — all fields extracted.</div>';
+    }
+    if ((d.reconciliation||[]).length) {
+      html += '<div class="meta">Reconciliation:</div>';
+      d.reconciliation.forEach(c => {
+        html += `<div class="cite">[${esc(c.status)}] ${esc(c.check)}: ${esc(c.detail)}</div>`;
+      });
+    }
+    out.innerHTML = html;
+  } catch(e) {
+    out.innerHTML = `<div class="msg a">Error: ${esc(String(e))}</div>`;
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

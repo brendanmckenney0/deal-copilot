@@ -1,0 +1,95 @@
+{
+  "doc_type": "om",
+  "source_file": "om_maple_grove.pdf",
+  "fields": {
+    "property_name": {
+      "value": "Maple Grove Apartments",
+      "page": 2
+    },
+    "address": {
+      "value": "1420 Elm Street, Dayton, OH 45402",
+      "page": 2
+    },
+    "total_units": {
+      "value": 120,
+      "page": 2
+    },
+    "unit_mix": {
+      "value": [
+        {
+          "unit_type": "1BR",
+          "count": 48,
+          "avg_rent": 950
+        },
+        {
+          "unit_type": "2BR",
+          "count": 60,
+          "avg_rent": 1250
+        },
+        {
+          "unit_type": "3BR",
+          "count": 12,
+          "avg_rent": 1550
+        }
+      ],
+      "page": 3
+    },
+    "avg_rent": {
+      "value": 1160,
+      "page": 3
+    },
+    "occupancy_pct": {
+      "value": 94,
+      "page": 3
+    },
+    "t12_noi": {
+      "value": 1240000,
+      "page": 4
+    },
+    "proforma_noi": {
+      "value": 1380000,
+      "page": 4
+    },
+    "asking_price": {
+      "value": 18500000,
+      "page": 4
+    },
+    "cap_rate_pct": {
+      "value": 6.7,
+      "page": 4
+    },
+    "expenses_breakdown": {
+      "value": [
+        {
+          "category": "Property Taxes",
+          "amount": 210000
+        },
+        {
+          "category": "Insurance",
+          "amount": 95000
+        },
+        {
+          "category": "Management",
+          "amount": 128000
+        },
+        {
+          "category": "Maintenance",
+          "amount": 140000
+        },
+        {
+          "category": "Utilities",
+          "amount": 86000
+        }
+      ],
+      "page": 5
+    },
+    "total_expenses": {
+      "value": 659000,
+      "page": 5
+    },
+    "sale_terms": {
+      "value": "All-cash to seller; 60-day close; 2% earnest money deposit; buyer assumes existing service contracts.",
+      "page": 6
+    }
+  }
+}
