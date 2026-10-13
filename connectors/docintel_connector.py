@@ -1,10 +1,10 @@
 """Doc-intelligence connector (ingest_mode="extract").
 
-Takes a PDF path + doc_type, extracts pages with pypdf, runs the
-extraction registry for that doc_type, stores the structured record in
-the entity store's `extractions` table, AND chunks the PDF text into
-Chroma — so one document is queryable both as structured data and via
-RAG.
+Takes a document path + doc_type, extracts its text (paged for PDFs,
+single page for markdown/text), runs the extraction registry for that
+doc_type, stores the structured record in the entity store's
+`extractions` table, AND chunks the raw text into Chroma — so one
+document is queryable both as structured data and via RAG.
 """
 from __future__ import annotations
 
@@ -18,27 +18,33 @@ from connectors.docs_connector import COLLECTION
 from extraction import guardrails, registry
 from providers import ensure_fitted
 
+SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
+
 
 class DocIntelConnector(BaseConnector):
     name = "docintel"
     ingest_mode = "extract"
 
-    def __init__(self, pdf_path, doc_type, entity_store, chroma_dir,
+    def __init__(self, doc_path, doc_type, entity_store, chroma_dir,
                  provider=None):
         super().__init__(provider)
-        self.pdf_path = Path(pdf_path)
+        self.doc_path = Path(doc_path)
         self.doc_type = doc_type
         self.store = entity_store
         self.chroma_dir = Path(chroma_dir)
 
     def authenticate(self, creds: dict):
         self.creds = creds  # demo-scale
-        if not self.pdf_path.exists():
-            raise FileNotFoundError(f"PDF {self.pdf_path} missing")
+        if not self.doc_path.exists():
+            raise FileNotFoundError(f"document {self.doc_path} missing")
+        if self.doc_path.suffix.lower() not in SUPPORTED_SUFFIXES:
+            raise ValueError(
+                f"unsupported file type {self.doc_path.suffix!r}; "
+                f"supported: {sorted(SUPPORTED_SUFFIXES)}")
 
     def discover(self) -> list:
-        if self.pdf_path.exists():
-            return [{"ref": str(self.pdf_path), "label": self.pdf_path.stem,
+        if self.doc_path.exists():
+            return [{"ref": str(self.doc_path), "label": self.doc_path.stem,
                      "doc_type": self.doc_type}]
         return []
 
@@ -46,9 +52,15 @@ class DocIntelConnector(BaseConnector):
         return {"items": self.discover()}
 
     def extract_pages(self) -> list[dict]:
-        reader = PdfReader(str(self.pdf_path))
-        return [{"page": i + 1, "text": (pg.extract_text() or "")}
-                for i, pg in enumerate(reader.pages)]
+        suffix = self.doc_path.suffix.lower()
+        if suffix == ".pdf":
+            reader = PdfReader(str(self.doc_path))
+            return [{"page": i + 1, "text": (pg.extract_text() or "")}
+                    for i, pg in enumerate(reader.pages)]
+        # markdown / text have no real pages — treat the whole file as
+        # page 1 so citations stay honest ("p.1").
+        text = self.doc_path.read_text(encoding="utf-8", errors="replace")
+        return [{"page": 1, "text": text}]
 
     def ingest(self, since=None) -> dict:
         pages = self.extract_pages()
@@ -62,9 +74,11 @@ class DocIntelConnector(BaseConnector):
         property_id = self._resolve_property(fields)
         self.store.save_extraction(doc_type=self.doc_type, fields=fields,
                                    property_id=property_id,
-                                   source_file=self.pdf_path.name)
+                                   source_file=self.doc_path.name)
 
-        # Also chunk the raw PDF text into Chroma (queryable both ways).
+        # Also chunk the raw text into Chroma (queryable both ways).
+        kind = ("pdf" if self.doc_path.suffix.lower() == ".pdf"
+                else "text")
         full_text = "\n\n".join(p["text"] for p in pages)
         chunks = self.chunk_text(full_text)
         if chunks:
@@ -73,17 +87,17 @@ class DocIntelConnector(BaseConnector):
             coll = chromadb.PersistentClient(
                 path=str(self.chroma_dir)).get_or_create_collection(
                     COLLECTION, metadata={"hnsw:space": "cosine"})
-            fname = self.pdf_path.name
+            fname = self.doc_path.name
             coll.upsert(
                 ids=[f"{fname}#{i}" for i in range(len(chunks))],
                 documents=chunks,
                 embeddings=embeddings,
-                metadatas=[{"source": fname, "kind": "pdf",
+                metadatas=[{"source": fname, "kind": kind,
                             "doc_type": self.doc_type, "chunk": i}
                            for i in range(len(chunks))])
 
         return {"doc_type": self.doc_type,
-                "source_file": self.pdf_path.name,
+                "source_file": self.doc_path.name,
                 "property_id": property_id,
                 "fields_extracted": sum(1 for f in fields.values()
                                        if isinstance(f, dict)

@@ -1,9 +1,10 @@
 """deal-copilot API.
 
   GET  /health            -> service + provider status
-  POST /ingest            -> multipart PDF + doc_type form field; runs the
-                             doc-intel pipeline synchronously and returns a
-                             job envelope {"job_id", "status": "complete", ...}
+  POST /ingest            -> multipart file (pdf/md/txt) + doc_type form
+                             field; runs the doc-intel pipeline
+                             synchronously and returns a job envelope
+                             {"job_id", "status": "complete", ...}
   GET  /jobs/{job_id}     -> the stored job record
   POST /ask               -> {"question"} -> routed fused answer
   GET  /                  -> the demo UI (static/index.html)
@@ -19,7 +20,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-from connectors.docintel_connector import DocIntelConnector
+from connectors.docintel_connector import DocIntelConnector, SUPPORTED_SUFFIXES
 from entities.seed import seed
 from entities.store import EntityStore
 from providers import PROVIDER_NAME, get_provider, load_state
@@ -53,16 +54,23 @@ def health():
 
 
 @app.post("/ingest")
-def ingest(pdf: UploadFile = File(...), doc_type: str = Form(...)):
+def ingest(file: UploadFile = File(...), doc_type: str = Form(...)):
     job_id = uuid.uuid4().hex[:12]
     if doc_type not in ("om", "lease"):
         return JSONResponse(
             {"job_id": job_id, "status": "failed",
              "error": f"doc_type must be 'om' or 'lease', got {doc_type!r}"},
             status_code=400)
-    dest = UPLOADS / f"{job_id}_{Path(pdf.filename or 'upload.pdf').name}"
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in SUPPORTED_SUFFIXES:
+        return JSONResponse(
+            {"job_id": job_id, "status": "failed",
+             "error": f"unsupported file type {suffix!r}; "
+                      f"supported: {sorted(SUPPORTED_SUFFIXES)}"},
+            status_code=400)
+    dest = UPLOADS / f"{job_id}_{Path(file.filename or 'upload').name}"
     with dest.open("wb") as f:
-        shutil.copyfileobj(pdf.file, f)
+        shutil.copyfileobj(file.file, f)
     try:
         conn = DocIntelConnector(dest, doc_type, _store, CHROMA, _provider)
         conn.authenticate({})
