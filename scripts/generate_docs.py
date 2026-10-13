@@ -4,11 +4,9 @@ Deterministic: fixed content, no randomness. Everything is fictional —
 no real company, property, or broker data.
 
 Outputs:
-  data/pdfs/om_maple_grove.pdf          (gitignored; rebuilt here)
-  data/pdfs/lease_bluefin.pdf           (gitignored; rebuilt here)
-  data/ground_truth/om_maple_grove.json (tracked)
-  data/ground_truth/lease_bluefin.json  (tracked)
-  data/corpus/*.md                      (tracked; RAG corpus)
+  data/pdfs/*.pdf                     (gitignored; rebuilt here)
+  data/ground_truth/*.json            (tracked)
+  data/corpus/*.md                    (tracked; RAG corpus)
 
 The PDFs use simple "Label: value" lines and "- col | col | col" table
 rows so the local (narrow) extractor can parse them; the markdown files
@@ -163,6 +161,186 @@ LEASE_GROUND_TRUTH = {
     },
 }
 
+# Second Harbor Point lease — a fitness tenant, earlier expiration.
+LEASE2_PAGES = [
+    [
+        "LEASE ABSTRACT",
+        "Tenant Name: Copperline Fitness LLC",
+        "Premises Address: Suite 210, 88 Harbor Drive, Tampa, FL 33602",
+        "Abstract prepared October 2026 — for discussion purposes only.",
+    ],
+    [
+        "Lease Term",
+        "Commencement Date: 2023-03-01",
+        "Expiration Date: 2027-11-30",
+        "Renewal Notice Date: 2027-05-31",
+    ],
+    [
+        "Economics",
+        "Base Rent (Annual): $96,000",
+        "Escalation Terms: 2.5% annual escalations on each anniversary of "
+        "the Commencement Date.",
+        "Renewal Options: One (1) five-year renewal option at 95% of fair "
+        "market rent.",
+        "Guarantor: David Park",
+    ],
+    [
+        "Permitted Use",
+        "Permitted Use: Fitness center and gym.",
+    ],
+]
+
+LEASE2_GROUND_TRUTH = {
+    "doc_type": "lease",
+    "source_file": "lease_copperline.pdf",
+    "fields": {
+        "tenant_name": {"value": "Copperline Fitness LLC", "page": 1},
+        "premises_address": {"value": "Suite 210, 88 Harbor Drive, Tampa, "
+                                      "FL 33602", "page": 1},
+        "commencement_date": {"value": "2023-03-01", "page": 2},
+        "expiration_date": {"value": "2027-11-30", "page": 2},
+        "base_rent_annual": {"value": 96000, "page": 3},
+        "escalation_terms": {"value": "2.5% annual escalations on each "
+                                      "anniversary of the Commencement Date.",
+                             "page": 3},
+        "renewal_options": {"value": "One (1) five-year renewal option at 95% "
+                                     "of fair market rent.", "page": 3},
+        "renewal_notice_date": {"value": "2027-05-31", "page": 2},
+        "guarantor": {"value": "David Park", "page": 3},
+        "permitted_use": {"value": "Fitness center and gym.", "page": 4},
+    },
+}
+
+# Ironworks industrial lease.
+LEASE3_PAGES = [
+    [
+        "LEASE ABSTRACT",
+        "Tenant Name: Great Lakes Logistics Inc",
+        "Premises Address: 4500 Industrial Parkway, Gary, IN 46406",
+        "Abstract prepared October 2026 — for discussion purposes only.",
+    ],
+    [
+        "Lease Term",
+        "Commencement Date: 2022-04-01",
+        "Expiration Date: 2028-03-31",
+        "Renewal Notice Date: 2027-09-30",
+    ],
+    [
+        "Economics",
+        "Base Rent (Annual): $210,000",
+        "Escalation Terms: 3% annual escalations on each anniversary of the "
+        "Commencement Date.",
+        "Renewal Options: Two (2) three-year renewal options at 95% of fair "
+        "market rent.",
+        "Guarantor: Great Lakes Holdings LLC",
+    ],
+    [
+        "Permitted Use",
+        "Permitted Use: Warehousing and light distribution.",
+    ],
+]
+
+LEASE3_GROUND_TRUTH = {
+    "doc_type": "lease",
+    "source_file": "lease_glakes.pdf",
+    "fields": {
+        "tenant_name": {"value": "Great Lakes Logistics Inc", "page": 1},
+        "premises_address": {"value": "4500 Industrial Parkway, Gary, "
+                                      "IN 46406", "page": 1},
+        "commencement_date": {"value": "2022-04-01", "page": 2},
+        "expiration_date": {"value": "2028-03-31", "page": 2},
+        "base_rent_annual": {"value": 210000, "page": 3},
+        "escalation_terms": {"value": "3% annual escalations on each "
+                                      "anniversary of the Commencement Date.",
+                             "page": 3},
+        "renewal_options": {"value": "Two (2) three-year renewal options at "
+                                     "95% of fair market rent.", "page": 3},
+        "renewal_notice_date": {"value": "2027-09-30", "page": 2},
+        "guarantor": {"value": "Great Lakes Holdings LLC", "page": 3},
+        "permitted_use": {"value": "Warehousing and light distribution.",
+                          "page": 4},
+    },
+}
+
+# Second OM — Harbor Point mixed-use, so cross-property OM comparison
+# has two rows. Reconciliation must hold: unit counts sum to 14,
+# 905250/12750000 = 7.10% cap, expenses sum to 522000.
+OM2_PAGES = [
+    [
+        "HARBOR POINT",
+        "Offering Memorandum",
+        "88 Harbor Drive, Tampa, FL 33602",
+        "Prepared October 2026 — for discussion purposes only.",
+    ],
+    [
+        "Property Overview",
+        "Property Name: Harbor Point",
+        "Address: 88 Harbor Drive, Tampa, FL 33602",
+        "Total Units: 14",
+        "Year Built: 2016",
+        "Property Type: Mixed-use retail and office",
+    ],
+    [
+        "Unit Mix:",
+        "- Retail | 8 | $2,400",
+        "- Office | 6 | $3,100",
+        "Average Rent: $2,700 per month",
+        "Occupancy: 92%",
+    ],
+    [
+        "Financial Summary",
+        "T-12 NOI: $905,250",
+        "Proforma NOI: $980,000",
+        "Asking Price: $12,750,000",
+        "Cap Rate: 7.10%",
+    ],
+    [
+        "Operating Expenses",
+        "Expenses Breakdown:",
+        "- Property Taxes | $180,000",
+        "- Insurance | $72,000",
+        "- Management | $96,000",
+        "- Maintenance | $110,000",
+        "- Utilities | $64,000",
+        "Total Expenses: $522,000",
+    ],
+    [
+        "Sale Terms",
+        "Sale Terms: 1031 exchange considered; 45-day close; 3% earnest "
+        "money deposit; seller to deliver estoppels within 15 days.",
+    ],
+]
+
+OM2_GROUND_TRUTH = {
+    "doc_type": "om",
+    "source_file": "om_harbor_point.pdf",
+    "fields": {
+        "property_name": {"value": "Harbor Point", "page": 2},
+        "address": {"value": "88 Harbor Drive, Tampa, FL 33602", "page": 2},
+        "total_units": {"value": 14, "page": 2},
+        "unit_mix": {"value": [
+            {"unit_type": "Retail", "count": 8, "avg_rent": 2400},
+            {"unit_type": "Office", "count": 6, "avg_rent": 3100}],
+            "page": 3},
+        "avg_rent": {"value": 2700, "page": 3},
+        "occupancy_pct": {"value": 92, "page": 3},
+        "t12_noi": {"value": 905250, "page": 4},
+        "proforma_noi": {"value": 980000, "page": 4},
+        "asking_price": {"value": 12750000, "page": 4},
+        "cap_rate_pct": {"value": 7.10, "page": 4},
+        "expenses_breakdown": {"value": [
+            {"category": "Property Taxes", "amount": 180000},
+            {"category": "Insurance", "amount": 72000},
+            {"category": "Management", "amount": 96000},
+            {"category": "Maintenance", "amount": 110000},
+            {"category": "Utilities", "amount": 64000}], "page": 5},
+        "total_expenses": {"value": 522000, "page": 5},
+        "sale_terms": {"value": "1031 exchange considered; 45-day close; 3% "
+                                "earnest money deposit; seller to deliver "
+                                "estoppels within 15 days.", "page": 6},
+    },
+}
+
 # ------------------------------------------------------------- corpus ----
 
 CORPUS = {
@@ -213,6 +391,26 @@ General notes across the fictional demo portfolio:
   notice deadline of 2028-08-31.
 - Quarterly property inspections are scheduled for all assets.
 """,
+    "harbor-point-leasing.md": """# Harbor Point — Leasing Notes
+
+Leasing status (October 2026):
+
+- Suite 120: Bluefin Coffee Roasters LLC — lease through 2029-05-31,
+  renewal notice deadline 2028-08-31.
+- Suite 210: Copperline Fitness LLC — lease through 2027-11-30,
+  renewal notice deadline 2027-05-31. The fitness tenant's renewal
+  decision is the key 2027 event for this property.
+- Remaining retail suites are marketed at $28 per square foot.
+""",
+    "ironworks-leasing.md": """# Ironworks Industrial Park — Leasing Notes
+
+Leasing status (October 2026):
+
+- Building A (120,000 SF): Great Lakes Logistics Inc — lease through
+  2028-03-31, renewal notice deadline 2027-09-30. Base rent $210,000
+  per year with 3% annual escalations.
+- Buildings B and C are vacant and being marketed to distribution users.
+""",
 }
 
 
@@ -240,21 +438,28 @@ def main() -> None:
     GT_DIR.mkdir(parents=True, exist_ok=True)
     CORPUS_DIR.mkdir(parents=True, exist_ok=True)
 
-    om_pdf = PDF_DIR / "om_maple_grove.pdf"
-    build_pdf(om_pdf, OM_PAGES, "Maple Grove Apartments — Offering Memorandum")
-    (GT_DIR / "om_maple_grove.json").write_text(
-        json.dumps(OM_GROUND_TRUTH, indent=2) + "\n")
-
-    lease_pdf = PDF_DIR / "lease_bluefin.pdf"
-    build_pdf(lease_pdf, LEASE_PAGES, "Bluefin Coffee Roasters — Lease Abstract")
-    (GT_DIR / "lease_bluefin.json").write_text(
-        json.dumps(LEASE_GROUND_TRUTH, indent=2) + "\n")
+    docs = [
+        ("om_maple_grove.pdf", OM_PAGES, OM_GROUND_TRUTH,
+         "Maple Grove Apartments — Offering Memorandum"),
+        ("om_harbor_point.pdf", OM2_PAGES, OM2_GROUND_TRUTH,
+         "Harbor Point — Offering Memorandum"),
+        ("lease_bluefin.pdf", LEASE_PAGES, LEASE_GROUND_TRUTH,
+         "Bluefin Coffee Roasters — Lease Abstract"),
+        ("lease_copperline.pdf", LEASE2_PAGES, LEASE2_GROUND_TRUTH,
+         "Copperline Fitness — Lease Abstract"),
+        ("lease_glakes.pdf", LEASE3_PAGES, LEASE3_GROUND_TRUTH,
+         "Great Lakes Logistics — Lease Abstract"),
+    ]
+    for fname, pages, gt, title in docs:
+        pdf = PDF_DIR / fname
+        build_pdf(pdf, pages, title)
+        (GT_DIR / fname.replace(".pdf", ".json")).write_text(
+            json.dumps(gt, indent=2) + "\n")
+        print(f"wrote {pdf} ({len(pages)} pages)")
 
     for fname, text in CORPUS.items():
         (CORPUS_DIR / fname).write_text(text)
 
-    print(f"wrote {om_pdf} ({len(OM_PAGES)} pages)")
-    print(f"wrote {lease_pdf} ({len(LEASE_PAGES)} pages)")
     print(f"wrote {len(CORPUS)} corpus files to {CORPUS_DIR}")
     print(f"wrote ground truth to {GT_DIR}")
 

@@ -20,10 +20,13 @@ python -m uvicorn app:app         # open http://127.0.0.1:8000
 ```
 
 Two tabs: **Ask** (routed Q&A with citations) and **Screen a
-document** (upload a PDF as `om` or `lease`, get structured fields +
-gap report). Try:
+document** (upload a PDF/Markdown as `om` or `lease`, get structured
+fields + gap report). Try:
 
 - "When does the Bluefin Coffee lease expire?" → structured
+- "When does the Copperline Fitness lease expire?" → structured,
+  tenant-aware (same property, different lease)
+- "Compare base rent across leases" → structured table, one row per lease
 - "Summarize the management notes for Maple Grove." → RAG
 - "Compare the asking price and cap rate across properties" → both
 
@@ -38,8 +41,9 @@ PROVIDER=local python eval/run_eval.py
 ```
 
 Combined suite: field-level extraction accuracy vs ground truth (money
-fields weighted 3×), 6 router-classification tests, 4 end-to-end ask
-tests (structured, RAG, comparison, refusal). Currently **20/20**.
+fields weighted 3×), 6 router-classification tests, end-to-end ask
+tests (structured, tenant-aware lease lookup, RAG, OM comparison,
+multi-lease comparison, refusal). Currently **32/32**.
 
 ## Repo layout
 

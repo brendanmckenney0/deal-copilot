@@ -1,0 +1,90 @@
+{
+  "doc_type": "om",
+  "source_file": "om_harbor_point.pdf",
+  "fields": {
+    "property_name": {
+      "value": "Harbor Point",
+      "page": 2
+    },
+    "address": {
+      "value": "88 Harbor Drive, Tampa, FL 33602",
+      "page": 2
+    },
+    "total_units": {
+      "value": 14,
+      "page": 2
+    },
+    "unit_mix": {
+      "value": [
+        {
+          "unit_type": "Retail",
+          "count": 8,
+          "avg_rent": 2400
+        },
+        {
+          "unit_type": "Office",
+          "count": 6,
+          "avg_rent": 3100
+        }
+      ],
+      "page": 3
+    },
+    "avg_rent": {
+      "value": 2700,
+      "page": 3
+    },
+    "occupancy_pct": {
+      "value": 92,
+      "page": 3
+    },
+    "t12_noi": {
+      "value": 905250,
+      "page": 4
+    },
+    "proforma_noi": {
+      "value": 980000,
+      "page": 4
+    },
+    "asking_price": {
+      "value": 12750000,
+      "page": 4
+    },
+    "cap_rate_pct": {
+      "value": 7.1,
+      "page": 4
+    },
+    "expenses_breakdown": {
+      "value": [
+        {
+          "category": "Property Taxes",
+          "amount": 180000
+        },
+        {
+          "category": "Insurance",
+          "amount": 72000
+        },
+        {
+          "category": "Management",
+          "amount": 96000
+        },
+        {
+          "category": "Maintenance",
+          "amount": 110000
+        },
+        {
+          "category": "Utilities",
+          "amount": 64000
+        }
+      ],
+      "page": 5
+    },
+    "total_expenses": {
+      "value": 522000,
+      "page": 5
+    },
+    "sale_terms": {
+      "value": "1031 exchange considered; 45-day close; 3% earnest money deposit; seller to deliver estoppels within 15 days.",
+      "page": 6
+    }
+  }
+}

@@ -72,11 +72,17 @@ Try these in order — each exercises a different route:
 1. **"When does the Bluefin Coffee lease expire?"**
    → route: structured. Answer with the date plus the renewal notice
    deadline, cited to the lease PDF page.
-2. **"Summarize the management notes for Maple Grove."**
+2. **"When does the Copperline Fitness lease expire?"**
+   → route: structured, tenant-aware. Same property (Harbor Point),
+   different tenant — the answer must be 2027-11-30, not Bluefin's
+   2029-05-31.
+3. **"Compare base rent across leases"**
+   → route: structured. One table row per lease (three leases).
+4. **"Summarize the management notes for Maple Grove."**
    → route: RAG. Answer built from retrieved passages, with sources.
-3. **"Compare the asking price and cap rate across properties"**
-   → route: both. A comparison table plus narrative.
-4. **"What is the CEO's favorite color?"**
+5. **"Compare the asking price and cap rate across properties"**
+   → route: both. A comparison table (two OMs) plus narrative.
+6. **"What is the CEO's favorite color?"**
    → honest refusal: "I don't know based on the indexed
    documents." That is the system working as designed.
 
@@ -101,7 +107,7 @@ source .venv/bin/activate
 PROVIDER=local python eval/run_eval.py
 ```
 
-**Success:** `== 20 passed, 0 failed ==`.
+**Success:** `== 32 passed, 0 failed ==`.
 
 ## 10. Try real LLM quality (optional, needs an OpenAI key)
 
