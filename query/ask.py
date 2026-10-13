@@ -124,8 +124,12 @@ class Asker:
                    if prop else None)
             fields = rec["fields"] if rec else {}
             exp = fields.get("expiration_date")
+            label = prop["name"] if prop else "?"
+            tenant = fields.get("tenant_name", {}).get("value")
+            if tenant and tenant.lower() not in label.lower():
+                label = f"{tenant} ({label})"
             ans, cit = _field_answer(
-                prop["name"] if prop else "?", "lease expiration",
+                label, "lease expiration",
                 exp, rec["source_file"] if rec else "?")
             if ans:
                 frags.append(ans)
