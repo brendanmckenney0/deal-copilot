@@ -146,8 +146,16 @@ def build_app():
     """Create the Slack app. Isolated here (not at import) so the pure
     logic above stays testable without Slack tokens or network."""
     from slack_bolt import App
+    from slack_sdk.web import WebClient
 
-    app = App(token=BOT_TOKEN)
+    # The Slack SDK only uses a proxy when told explicitly; this VM
+    # egresses through one, so pass it through (harmless elsewhere).
+    proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
+    if proxy:
+        client = WebClient(token=BOT_TOKEN, proxy=proxy)
+        app = App(token=BOT_TOKEN, client=client)
+    else:
+        app = App(token=BOT_TOKEN)
 
     @app.event("app_mention")
     def on_mention(event, say):
