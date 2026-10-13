@@ -45,6 +45,14 @@ fields weighted 3×), 6 router-classification tests, end-to-end ask
 tests (structured, tenant-aware lease lookup, RAG, OM comparison,
 multi-lease comparison, refusal). Currently **32/32**.
 
+## Headless: Slack bot
+
+`slack_bot.py` puts the same ask pipeline behind Slack Socket Mode
+(no public URL needed) — DMs and @-mentions for Q&A, plus a
+`/deadlines` slash command showing the critical-date diary. See
+`docs/slack-setup.md` for the 5-minute app setup. This is the
+headless demo: no browser involved.
+
 ## Repo layout
 
 ```
