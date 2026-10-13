@@ -60,7 +60,7 @@
 
   <div id="panel-screen" class="panel">
     <div class="row">
-      <input type="file" id="pdf" accept="application/pdf">
+      <input type="file" id="docfile" accept=".pdf,.md,.markdown,.txt">
       <select id="doctype" style="flex:0 0 160px">
         <option value="om">Offering memo</option>
         <option value="lease">Lease abstract</option>
@@ -115,14 +115,14 @@ async function ask() {
 document.getElementById('q').addEventListener('keydown', e => { if (e.key==='Enter') ask(); });
 
 async function ingest() {
-  const file = document.getElementById('pdf').files[0];
+  const file = document.getElementById('docfile').files[0];
   const doctype = document.getElementById('doctype').value;
   const out = document.getElementById('result');
-  if (!file) { out.innerHTML = '<div class="msg a">Choose a PDF first.</div>'; return; }
+  if (!file) { out.innerHTML = '<div class="msg a">Choose a file first (PDF, Markdown, or text).</div>'; return; }
   const btn = document.getElementById('ingbtn'); btn.disabled = true;
   out.innerHTML = '<div class="msg a">Screening…</div>';
   const fd = new FormData();
-  fd.append('pdf', file);
+  fd.append('file', file);
   fd.append('doc_type', doctype);
   try {
     const r = await fetch('/ingest', {method:'POST', body: fd});

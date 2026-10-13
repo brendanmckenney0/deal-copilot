@@ -87,6 +87,10 @@ Click **Screen a document**, choose `lease`, upload
 10/10 fields extracted, property resolved to Harbor Point, and
 reconciliation checks passing.
 
+> The uploader also accepts Markdown and text files (`.md`,
+> `.markdown`, `.txt`) — handy for lease abstracts authored as text.
+> Markdown has no real pages, so citations read "p.1".
+
 ## 9. Run the eval (optional)
 
 In a **new** Terminal:
