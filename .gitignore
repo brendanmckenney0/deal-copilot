@@ -8,3 +8,4 @@ data/chroma/
 data/uploads/
 data/pdfs/
 .DS_Store
+data/chunks.json
