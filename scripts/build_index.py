@@ -1,6 +1,6 @@
 """Build the full demo index from scratch.
 
-Wipes data/entities.db and data/chroma, then:
+Wipes data/entities.db and data/chunks.json, then:
   1. seeds the fictional property registry (entities.seed)
   2. ingests data/corpus/*.md via DocsConnector (chunk mode)
   3. ingests the sample PDFs via DocIntelConnector (extract mode)
@@ -9,7 +9,6 @@ Idempotent: safe to re-run any time. Run scripts/generate_docs.py first.
 """
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -24,44 +23,51 @@ from providers import ensure_fitted, get_provider, save_state  # noqa: E402
 
 DATA = ROOT / "data"
 DB = DATA / "entities.db"
-CHROMA = DATA / "chroma"
+CHUNKS = DATA / "chunks.json"
 PDFS = DATA / "pdfs"
 TFIDF = DATA / "tfidf.json"
 
 
-def main() -> None:
-    if DB.exists():
-        DB.unlink()
-    if CHROMA.exists():
-        shutil.rmtree(CHROMA)
-    if TFIDF.exists():
-        TFIDF.unlink()
+def main(data_dir: Path | str | None = None) -> None:
+    """Build the demo index. data_dir defaults to <repo>/data (local dev);
+    pass /tmp/... on serverless cold starts."""
+    data = Path(data_dir) if data_dir else DATA
+    db = data / "entities.db"
+    chunks = data / "chunks.json"
+    tfidf = data / "tfidf.json"
+    pdfs = data / "pdfs"
+    if db.exists():
+        db.unlink()
+    if chunks.exists():
+        chunks.unlink()
+    if tfidf.exists():
+        tfidf.unlink()
 
     provider = get_provider()
 
     # Fit the TF-IDF space ONCE over everything to be ingested, then save
     # it so the server/eval embed queries in the same space.
     corpus_texts = [p.read_text(encoding="utf-8")
-                    for p in sorted((ROOT / "data" / "corpus").glob("*.md"))]
+                    for p in sorted((data / "corpus").glob("*.md"))]
     pdf_texts = []
     try:
         from pypdf import PdfReader
         for pdf in ["om_maple_grove.pdf", "om_harbor_point.pdf",
                     "lease_bluefin.pdf", "lease_copperline.pdf",
                     "lease_glakes.pdf"]:
-            reader = PdfReader(str(PDFS / pdf))
+            reader = PdfReader(str(pdfs / pdf))
             pdf_texts.append("\n\n".join((pg.extract_text() or "")
                                          for pg in reader.pages))
     except Exception:
         pass
     ensure_fitted(corpus_texts + pdf_texts)
-    save_state(TFIDF)
+    save_state(tfidf)
 
-    store = EntityStore(str(DB))
+    store = EntityStore(str(db))
     seed(store)
     print(f"seeded {len(store.list_properties())} properties")
 
-    docs = DocsConnector(ROOT / "data" / "corpus", CHROMA, provider)
+    docs = DocsConnector(data / "corpus", data, provider)
     docs.authenticate({})
     r = docs.ingest()
     print(f"corpus: {r['files']} files -> {r['chunks']} chunks "
@@ -72,7 +78,7 @@ def main() -> None:
                           ("lease_bluefin.pdf", "lease"),
                           ("lease_copperline.pdf", "lease"),
                           ("lease_glakes.pdf", "lease")]:
-        di = DocIntelConnector(PDFS / pdf, doc_type, store, CHROMA, provider)
+        di = DocIntelConnector(pdfs / pdf, doc_type, store, data, provider)
         di.authenticate({})
         r = di.ingest()
         print(f"{pdf}: {r['fields_extracted']} fields ok, "

@@ -17,10 +17,7 @@ import logging
 import re
 from pathlib import Path
 
-import chromadb
-
-from connectors.docs_connector import COLLECTION
-from query import permissions, router
+from query import chunkstore, permissions, router
 
 log = logging.getLogger("deal_copilot.ask")
 
@@ -29,22 +26,17 @@ RAG_THRESHOLD = 0.12  # min cosine similarity for a chunk to count
 RAG_TOP_K = 5
 
 
-def _ensure_idf(chroma_dir, provider):
+def _ensure_idf(data_dir, provider):
     """Make sure query-time embeddings live in the same vector space as the
     stored ones. Prefers the fitted state saved by scripts/build_index.py;
-    falls back to fitting from the stored documents."""
+    falls back to fitting from the stored chunks."""
     from providers import _idf, fit_corpus, load_state
     if _idf is not None:
         return
-    state_path = Path(chroma_dir).parent / "tfidf.json"
+    state_path = Path(data_dir) / "tfidf.json"
     if load_state(state_path):
         return
-    try:
-        coll = chromadb.PersistentClient(path=str(chroma_dir)) \
-            .get_collection(COLLECTION)
-        docs = coll.get(include=["documents"])["documents"] or []
-    except Exception:
-        docs = []
+    docs = [c["text"] for c in chunkstore.load_chunks(data_dir)]
     fit_corpus(docs or ["deal copilot empty corpus"])
 
 
@@ -71,10 +63,10 @@ def _field_answer(prop_name, field_label, rec, source_file):
 
 
 class Asker:
-    def __init__(self, store, chroma_dir, provider=None, user=None):
+    def __init__(self, store, data_dir, provider=None, user=None):
         from providers import get_provider
         self.store = store
-        self.chroma_dir = Path(chroma_dir)
+        self.data_dir = Path(data_dir)
         self.provider = provider or get_provider()
         self.user = user or permissions.DEMO_USER
 
@@ -124,8 +116,12 @@ class Asker:
                    if prop else None)
             fields = rec["fields"] if rec else {}
             exp = fields.get("expiration_date")
+            label = prop["name"] if prop else "?"
+            tenant = fields.get("tenant_name", {}).get("value")
+            if tenant and tenant.lower() not in label.lower():
+                label = f"{tenant} ({label})"
             ans, cit = _field_answer(
-                prop["name"] if prop else "?", "lease expiration",
+                label, "lease expiration",
                 exp, rec["source_file"] if rec else "?")
             if ans:
                 frags.append(ans)
@@ -201,27 +197,15 @@ class Asker:
 
     # -- RAG ------------------------------------------------------------
     def _rag(self, question):
-        _ensure_idf(self.chroma_dir, self.provider)
-        try:
-            coll = chromadb.PersistentClient(
-                path=str(self.chroma_dir)).get_collection(COLLECTION)
-        except Exception:
+        _ensure_idf(self.data_dir, self.provider)
+        chunks = chunkstore.load_chunks(self.data_dir)
+        if not chunks:
             return [], []
         qvec = self.provider.embed([question])[0]
-        res = coll.query(query_embeddings=[qvec], n_results=RAG_TOP_K,
-                         include=["documents", "metadatas", "distances"])
-        docs = res["documents"][0] if res["documents"] else []
-        metas = res["metadatas"][0] if res["metadatas"] else []
-        dists = res["distances"][0] if res["distances"] else []
-        chunks = []
-        for doc, meta, dist in zip(docs, metas, dists):
-            sim = 1.0 - float(dist)  # cosine distance -> similarity
-            if sim >= RAG_THRESHOLD:
-                chunks.append({"text": doc, "source": meta.get("source", "?"),
-                               "title": meta.get("source", "?"),
-                               "score": sim})
-        chunks = permissions.filter_for_user(self.user, chunks)
-        return chunks, chunks
+        hits = chunkstore.query(qvec, chunks,
+                                top_k=RAG_TOP_K, threshold=RAG_THRESHOLD)
+        hits = permissions.filter_for_user(self.user, hits)
+        return hits, hits
 
     # -- fused ask -------------------------------------------------------
     def ask(self, question: str, history=None) -> dict:

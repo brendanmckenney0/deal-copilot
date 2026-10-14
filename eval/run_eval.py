@@ -107,7 +107,7 @@ def eval_router(store: EntityStore):
 
 def eval_ask(store: EntityStore):
     print("\n(c) end-to-end ask tests")
-    asker = Asker(store, ROOT / "data" / "chroma", get_provider())
+    asker = Asker(store, ROOT / "data", get_provider())
 
     r = asker.ask("When does the Bluefin Coffee lease expire?")
     check("ask structured: route", r["route"] == "structured",

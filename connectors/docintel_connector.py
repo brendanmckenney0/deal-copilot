@@ -3,20 +3,19 @@
 Takes a document path + doc_type, extracts its text (paged for PDFs,
 single page for markdown/text), runs the extraction registry for that
 doc_type, stores the structured record in the entity store's
-`extractions` table, AND chunks the raw text into Chroma — so one
-document is queryable both as structured data and via RAG.
+`extractions` table, AND chunks the raw text into the JSON chunk store —
+so one document is queryable both as structured data and via RAG.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-import chromadb
 from pypdf import PdfReader
 
 from connectors.base import BaseConnector
-from connectors.docs_connector import COLLECTION
 from extraction import guardrails, registry
 from providers import ensure_fitted
+from query.chunkstore import append_chunks
 
 SUPPORTED_SUFFIXES = {".pdf", ".md", ".markdown", ".txt"}
 
@@ -25,13 +24,13 @@ class DocIntelConnector(BaseConnector):
     name = "docintel"
     ingest_mode = "extract"
 
-    def __init__(self, doc_path, doc_type, entity_store, chroma_dir,
+    def __init__(self, doc_path, doc_type, entity_store, data_dir,
                  provider=None):
         super().__init__(provider)
         self.doc_path = Path(doc_path)
         self.doc_type = doc_type
         self.store = entity_store
-        self.chroma_dir = Path(chroma_dir)
+        self.data_dir = Path(data_dir)
 
     def authenticate(self, creds: dict):
         self.creds = creds  # demo-scale
@@ -76,7 +75,7 @@ class DocIntelConnector(BaseConnector):
                                    property_id=property_id,
                                    source_file=self.doc_path.name)
 
-        # Also chunk the raw text into Chroma (queryable both ways).
+        # Also chunk the raw text into the chunk store (queryable both ways).
         kind = ("pdf" if self.doc_path.suffix.lower() == ".pdf"
                 else "text")
         full_text = "\n\n".join(p["text"] for p in pages)
@@ -84,17 +83,11 @@ class DocIntelConnector(BaseConnector):
         if chunks:
             ensure_fitted(chunks)
             embeddings = self.provider.embed(chunks)
-            coll = chromadb.PersistentClient(
-                path=str(self.chroma_dir)).get_or_create_collection(
-                    COLLECTION, metadata={"hnsw:space": "cosine"})
             fname = self.doc_path.name
-            coll.upsert(
-                ids=[f"{fname}#{i}" for i in range(len(chunks))],
-                documents=chunks,
-                embeddings=embeddings,
-                metadatas=[{"source": fname, "kind": kind,
-                            "doc_type": self.doc_type, "chunk": i}
-                           for i in range(len(chunks))])
+            append_chunks(self.data_dir, [
+                {"id": f"{fname}#{i}", "text": ch, "source": fname,
+                 "embedding": emb}
+                for i, (ch, emb) in enumerate(zip(chunks, embeddings))])
 
         return {"doc_type": self.doc_type,
                 "source_file": self.doc_path.name,

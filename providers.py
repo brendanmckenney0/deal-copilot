@@ -72,7 +72,7 @@ def fit_corpus(texts: list[str]) -> None:
 
 def save_state(path) -> None:
     """Persist the fitted IDF/vocabulary so other processes (server, eval)
-    embed in the same vector space. The .db and chroma dir are rebuilt by
+    embed in the same vector space. The .db and chunks.json are rebuilt by
     build_index.py; this file goes with them (gitignored)."""
     import json
     from pathlib import Path
