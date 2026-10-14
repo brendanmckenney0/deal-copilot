@@ -1,30 +1,28 @@
 """Docs connector (ingest_mode="chunk").
 
 Ingests data/corpus/*.md: sliding-window chunking (~900 chars,
-word-safe), embeds with the active provider, stores in the persistent
-Chroma collection `deal_copilot_docs`. Re-running is idempotent for the
-same source file (ids are deterministic per file+chunk index).
+word-safe), embeds with the active provider, stores chunks + embeddings
+in data/chunks.json (pure-python chunk store; see query/chunkstore.py).
+Re-running is idempotent for the same source file (ids are deterministic
+per file+chunk index).
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-import chromadb
-
 from connectors.base import BaseConnector
 from providers import ensure_fitted
-
-COLLECTION = "deal_copilot_docs"
+from query.chunkstore import append_chunks
 
 
 class DocsConnector(BaseConnector):
     name = "docs"
     ingest_mode = "chunk"
 
-    def __init__(self, corpus_dir, chroma_dir, provider=None):
+    def __init__(self, corpus_dir, data_dir, provider=None):
         super().__init__(provider)
         self.corpus_dir = Path(corpus_dir)
-        self.chroma_dir = Path(chroma_dir)
+        self.data_dir = Path(data_dir)
 
     def authenticate(self, creds: dict):
         self.creds = creds  # demo-scale: local files need no real auth
@@ -43,26 +41,20 @@ class DocsConnector(BaseConnector):
                           "source": Path(d["ref"]).name})
         return {"items": items}
 
-    def get_collection(self):
-        client = chromadb.PersistentClient(path=str(self.chroma_dir))
-        return client.get_or_create_collection(
-            COLLECTION, metadata={"hnsw:space": "cosine"})
-
     def ingest(self, since=None) -> dict:
         items = self.fetch_changes(since)["items"]
         ensure_fitted([f"{it['title']}\n\n{it['text']}" for it in items])
-        coll = self.get_collection()
-        ids, docs, metas = [], [], []
+        chunks = []
         for it in items:
             for i, ch in enumerate(self.chunk_text(it["text"])):
                 stem = Path(it["source"]).stem
-                ids.append(f"{stem}#{i}")
-                docs.append(f"{it['title']}\n\n{ch}")
-                metas.append({"source": it["source"], "kind": "corpus",
-                              "chunk": i})
-        if ids:
-            embeddings = self.provider.embed(docs)
-            coll.upsert(ids=ids, documents=docs,
-                        embeddings=embeddings, metadatas=metas)
-        return {"files": len(items), "chunks": len(ids),
-                "collection": COLLECTION}
+                chunks.append({"id": f"{stem}#{i}",
+                               "text": f"{it['title']}\n\n{ch}",
+                               "source": it["source"]})
+        if chunks:
+            embeddings = self.provider.embed([c["text"] for c in chunks])
+            for c, emb in zip(chunks, embeddings):
+                c["embedding"] = emb
+            append_chunks(self.data_dir, chunks)
+        return {"files": len(items), "chunks": len(chunks),
+                "collection": "chunks.json"}

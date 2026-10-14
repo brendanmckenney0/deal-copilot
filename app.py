@@ -13,6 +13,7 @@ Run with:  python -m uvicorn app:app   (from the repo root)
 """
 from __future__ import annotations
 
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -27,9 +28,24 @@ from providers import PROVIDER_NAME, get_provider, load_state
 from query.ask import Asker
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
+# DEALCOPILOT_DATA lets serverless deployments point at a writable dir
+# (e.g. /tmp/...); local dev uses the repo's data/ as before.
+DATA = Path(os.environ.get("DEALCOPILOT_DATA", ROOT / "data"))
 UPLOADS = DATA / "uploads"
-CHROMA = DATA / "chroma"
+
+
+def _ensure_index() -> None:
+    """Cold-start bootstrap: if the demo index is missing (fresh serverless
+    container), generate the fictional docs and build it into DATA."""
+    if (DATA / "entities.db").exists() and (DATA / "chunks.json").exists():
+        return
+    from scripts.build_index import main as build_index
+    from scripts.generate_docs import main as generate_docs
+    generate_docs(DATA)
+    build_index(DATA)
+
+
+_ensure_index()
 
 app = FastAPI(title="deal-copilot")
 JOBS: dict[str, dict] = {}
@@ -37,7 +53,7 @@ JOBS: dict[str, dict] = {}
 _store = EntityStore(str(DATA / "entities.db"))
 _provider = get_provider()
 load_state(DATA / "tfidf.json")  # same embedding space as the index, if built
-_asker = Asker(_store, CHROMA, _provider)
+_asker = Asker(_store, DATA, _provider)
 
 
 @app.on_event("startup")
@@ -72,7 +88,7 @@ def ingest(file: UploadFile = File(...), doc_type: str = Form(...)):
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
     try:
-        conn = DocIntelConnector(dest, doc_type, _store, CHROMA, _provider)
+        conn = DocIntelConnector(dest, doc_type, _store, DATA, _provider)
         conn.authenticate({})
         result = conn.ingest()
     except Exception as exc:  # noqa: BLE001 - surfaced in the job record

@@ -47,7 +47,7 @@ if not BOT_TOKEN or not APP_TOKEN:
 
 load_state(DATA / "tfidf.json")  # same embedding space as the index
 _store = EntityStore(str(DATA / "entities.db"))
-_asker = Asker(_store, DATA / "chroma", get_provider())
+_asker = Asker(_store, DATA, get_provider())
 
 
 # ------------------------------------------------------------ formatting ---

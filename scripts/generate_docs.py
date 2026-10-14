@@ -433,10 +433,19 @@ def build_pdf(path: Path, pages: list[list[str]], title: str) -> None:
     doc.build(story)
 
 
-def main() -> None:
-    PDF_DIR.mkdir(parents=True, exist_ok=True)
-    GT_DIR.mkdir(parents=True, exist_ok=True)
-    CORPUS_DIR.mkdir(parents=True, exist_ok=True)
+def main(data_dir: Path | str | None = None) -> None:
+    """Generate the fictional demo PDFs + ground truth (+ corpus).
+
+    data_dir defaults to <repo>/data (local dev). Pass /tmp/... on
+    serverless cold starts.
+    """
+    base = Path(data_dir) if data_dir else ROOT / "data"
+    pdf_dir = base / "pdfs"
+    gt_dir = base / "ground_truth"
+    corpus_dir = base / "corpus"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    gt_dir.mkdir(parents=True, exist_ok=True)
+    corpus_dir.mkdir(parents=True, exist_ok=True)
 
     docs = [
         ("om_maple_grove.pdf", OM_PAGES, OM_GROUND_TRUTH,
@@ -451,17 +460,17 @@ def main() -> None:
          "Great Lakes Logistics — Lease Abstract"),
     ]
     for fname, pages, gt, title in docs:
-        pdf = PDF_DIR / fname
+        pdf = pdf_dir / fname
         build_pdf(pdf, pages, title)
-        (GT_DIR / fname.replace(".pdf", ".json")).write_text(
+        (gt_dir / fname.replace(".pdf", ".json")).write_text(
             json.dumps(gt, indent=2) + "\n")
         print(f"wrote {pdf} ({len(pages)} pages)")
 
     for fname, text in CORPUS.items():
-        (CORPUS_DIR / fname).write_text(text)
+        (corpus_dir / fname).write_text(text)
 
-    print(f"wrote {len(CORPUS)} corpus files to {CORPUS_DIR}")
-    print(f"wrote ground truth to {GT_DIR}")
+    print(f"wrote {len(CORPUS)} corpus files to {corpus_dir}")
+    print(f"wrote ground truth to {gt_dir}")
 
 
 if __name__ == "__main__":
